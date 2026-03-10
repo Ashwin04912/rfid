@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/server.js",
     "migrate": "node database/migrate.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "migrate:fresh": "node database/migrate.js --fresh"
   },
   "keywords": [],
   "author": "",
