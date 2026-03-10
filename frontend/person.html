@@ -265,11 +265,14 @@
         const socket = io();
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
-        const RATE_PER_MIN = 10;
 
         let isCurrentlyIn = false;
         let baseMonthlySecs = 0;
+        let baseMonthlyEarnings = 0;
         let baseSessionSecs = 0;
+        let baseSessionEarnings = 0;
+        let employeeHourlyRate = 600; // default
+
         let lastFetchedAt = Date.now();
         let tickTimer = null;
 
@@ -282,22 +285,27 @@
 
         function startLiveFeed() {
             if (tickTimer) clearInterval(tickTimer);
+            const ratePerSec = (employeeHourlyRate / 3600);
+
             tickTimer = setInterval(() => {
                 if (isCurrentlyIn) {
                     const elapsedSecs = Math.floor((Date.now() - lastFetchedAt) / 1000);
                     const liveMonthlySecs = baseMonthlySecs + elapsedSecs;
+                    const liveMonthlyEarnings = baseMonthlyEarnings + (elapsedSecs * ratePerSec);
+
                     const liveSessionSecs = baseSessionSecs + elapsedSecs;
+                    const liveSessionEarnings = baseSessionEarnings + (elapsedSecs * ratePerSec);
 
                     // Update Header
                     document.getElementById('monthlyHours').innerText = formatDuration(liveMonthlySecs);
                     document.getElementById('monthlyHours').classList.add('live-glow');
-                    document.getElementById('estSalary').innerText = `₹${((liveMonthlySecs / 60) * RATE_PER_MIN).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    document.getElementById('estSalary').innerText = `₹${liveMonthlyEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
                     // Update First Row in History (the active session)
                     const firstRowTimer = document.querySelector('.session-timer');
                     const firstRowYield = document.querySelector('.session-yield');
                     if (firstRowTimer) firstRowTimer.innerText = formatDuration(liveSessionSecs);
-                    if (firstRowYield) firstRowYield.innerText = `₹${((liveSessionSecs / 60) * RATE_PER_MIN).toFixed(2)}`;
+                    if (firstRowYield) firstRowYield.innerText = `₹${liveSessionEarnings.toFixed(2)}`;
                 }
             }, 1000);
         }
@@ -315,10 +323,12 @@
                 const { employee, history, monthlyStats } = data;
                 lastFetchedAt = Date.now();
                 isCurrentlyIn = false;
+                employeeHourlyRate = employee.hourly_rate || 600;
 
                 document.getElementById('empName').innerText = employee.name;
                 document.getElementById('empSub').innerText = `Employee ID: #${employee.id} | RFID: ${employee.rfid_uid}`;
                 document.getElementById('logCount').innerText = `${history.length} Sessions`;
+                document.getElementById('hourlyRate').innerText = `Rate: ₹${(employeeHourlyRate / 60).toFixed(0)}/min`;
 
                 // History Table
                 const tbody = document.getElementById('historyBody');
@@ -328,32 +338,34 @@
                 if (history.length > 0 && !history[0].check_out && history[0].check_in) {
                     isCurrentlyIn = true;
                     baseSessionSecs = Math.floor(parseFloat(history[0].total_hours || 0) * 3600);
+                    baseSessionEarnings = parseFloat(history[0].earnings || 0);
                 }
 
                 history.forEach((log, i) => {
                     const tr = document.createElement('tr');
-                    const durHrs = parseFloat(log.total_hours || 0);
-                    const earnings = (durHrs * RATE_PER_MIN * 60).toFixed(2);
                     const isLiveSession = i === 0 && !log.check_out && log.check_in;
+                    const earnings = parseFloat(log.earnings || 0).toFixed(2);
 
                     tr.innerHTML = `
-                    <td class="fw-bold">${new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                    <td>${log.check_in ? new Date(log.check_in).toLocaleTimeString('en-GB') : '--:--:--'}</td>
-                    <td>${log.check_out ? new Date(log.check_out).toLocaleTimeString('en-GB') : '<span class="text-primary font-monospace fw-bold animate-pulse">Running...</span>'}</td>
-                    <td class="fw-bold ${isLiveSession ? 'session-timer text-primary' : 'text-sub'}">
-                        ${formatDuration(Math.floor(durHrs * 3600))}
-                    </td>
-                    <td class="fw-bold ${isLiveSession ? 'session-yield text-success' : 'text-sub'}">₹${earnings}</td>
-                `;
+                        <td class="fw-bold">${new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        <td>${log.check_in ? new Date(log.check_in).toLocaleTimeString('en-GB') : '--:--:--'}</td>
+                        <td>${log.check_out ? new Date(log.check_out).toLocaleTimeString('en-GB') : '<span class="text-primary font-monospace fw-bold animate-pulse">Running...</span>'}</td>
+                        <td class="fw-bold ${isLiveSession ? 'session-timer text-primary' : 'text-sub'}">
+                            ${formatDuration(Math.floor(parseFloat(log.total_hours || 0) * 3600))}
+                        </td>
+                        <td class="fw-bold ${isLiveSession ? 'session-yield text-success' : 'text-sub'}">₹${earnings}</td>
+                    `;
                     tbody.appendChild(tr);
                 });
 
                 // Stats calculation
                 if (monthlyStats.length > 0) {
                     const stat = monthlyStats[0];
-                    baseMonthlySecs = Math.floor(parseFloat(stat.total_monthly_hours) * 3600);
+                    baseMonthlySecs = Math.floor(parseFloat(stat.total_monthly_hours || 0) * 3600);
+                    baseMonthlyEarnings = parseFloat(stat.total_monthly_earnings || 0);
+
                     document.getElementById('monthlyHours').innerText = formatDuration(baseMonthlySecs);
-                    document.getElementById('estSalary').innerText = `₹${(parseFloat(stat.total_monthly_hours) * RATE_PER_MIN * 60).toFixed(2)}`;
+                    document.getElementById('estSalary').innerText = `₹${baseMonthlyEarnings.toFixed(2)}`;
                     document.getElementById('presentDays').innerText = stat.days_present;
                     document.getElementById('absentDays').innerText = stat.days_absent;
                 } else {

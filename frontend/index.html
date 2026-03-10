@@ -253,12 +253,13 @@
                                 <th>Employee Name</th>
                                 <th>Status</th>
                                 <th>Today's Time</th>
+                                <th>Earnings</th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
                         <tbody id="presentBody">
                             <tr>
-                                <td colspan="5" class="text-center py-5 opacity-50">Checking status...</td>
+                                <td colspan="6" class="text-center py-5 opacity-50">Checking status...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -277,12 +278,13 @@
                                 <th>Employee Name</th>
                                 <th>Status</th>
                                 <th>Today's Time</th>
+                                <th>Earnings</th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
                         <tbody id="absentBody">
                             <tr>
-                                <td colspan="5" class="text-center py-5 opacity-50">Checking status...</td>
+                                <td colspan="6" class="text-center py-5 opacity-50">Checking status...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -313,22 +315,30 @@
             return [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
         }
 
-        function calculateLiveDuration(row) {
-            if (!row.currently_in || !row.first_check_in) return Math.floor(row.total_hours * 3600);
+        function calculateLiveValue(row) {
             const lastUpdate = new Date(row._lastFetchedAt || Date.now());
             const elapsedSinceFetch = Math.floor((Date.now() - lastUpdate) / 1000);
-            return Math.floor(row.total_hours * 3600) + elapsedSinceFetch;
+            const hourlyRate = row.hourly_rate || 600;
+            const ratePerSec = hourlyRate / 3600;
+
+            const liveSecs = Math.floor(row.total_hours * 3600) + elapsedSinceFetch;
+            const liveEarnings = parseFloat(row.earnings) + (elapsedSinceFetch * ratePerSec);
+
+            return { liveSecs, liveEarnings };
         }
 
         function startTicking() {
             if (tickingInterval) clearInterval(tickingInterval);
             tickingInterval = setInterval(() => {
-                const timerElements = document.querySelectorAll('.duration-timer');
-                timerElements.forEach(el => {
-                    const id = el.dataset.id;
-                    const row = currentAttendanceData.find(r => r.id == id);
-                    if (row && row.currently_in) {
-                        el.innerText = formatDuration(calculateLiveDuration(row));
+                currentAttendanceData.forEach(row => {
+                    if (row.currently_in) {
+                        const { liveSecs, liveEarnings } = calculateLiveValue(row);
+
+                        const timeEl = document.querySelector(`.duration-timer[data-id="${row.id}"]`);
+                        const earnEl = document.querySelector(`.earnings-timer[data-id="${row.id}"]`);
+
+                        if (timeEl) timeEl.innerText = formatDuration(liveSecs);
+                        if (earnEl) earnEl.innerText = `₹${liveEarnings.toFixed(2)}`;
                     }
                 });
             }, 1000);
@@ -339,7 +349,7 @@
             tbody.innerHTML = '';
 
             if (rows.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No records found here.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No records found here.</td></tr>';
                 return;
             }
 
@@ -350,11 +360,14 @@
 
                 let statusHTML = '';
                 let timerClass = 'duration-static';
+                let earningsClass = 'text-sub';
+
                 if (!isPresent) {
                     statusHTML = '<span class="badge-status badge-absent">ABSENT</span>';
                 } else if (currentlyIn) {
                     statusHTML = '<span class="badge-status badge-in">PRESENT</span>';
                     timerClass = 'duration-timer';
+                    earningsClass = 'earnings-timer text-success fw-bold';
                 } else {
                     statusHTML = '<span class="badge-status badge-out">CHECKED OUT</span>';
                 }
@@ -364,8 +377,9 @@
                 <td><div class="fw-bold">${row.name}</div></td>
                 <td>${statusHTML}</td>
                 <td><span class="${timerClass}" data-id="${row.id}">${formatDuration(Math.floor(row.total_hours * 3600))}</span></td>
+                <td><span class="${earningsClass}" data-id="${row.id}">₹${parseFloat(row.earnings || 0).toFixed(2)}</span></td>
                 <td class="text-end">
-                    <a href="/person.html?id=${row.id}" class="btn-portal">View History</a>
+                    <a href="/person.html?id=${row.id}" class="">View History</a>
                 </td>
             `;
                 tbody.appendChild(tr);

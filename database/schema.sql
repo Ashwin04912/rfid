@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     employee_id INT NOT NULL,
     check_in DATETIME DEFAULT NULL,
     check_out DATETIME DEFAULT NULL,
-    total_hours DECIMAL(5, 2) DEFAULT 0.00,
+    total_hours DECIMAL(10, 4) DEFAULT 0.0000,
+    earnings DECIMAL(10, 2) DEFAULT 0.00,
     status ENUM('PRESENT', 'ABSENT') DEFAULT 'PRESENT',
     date DATE NOT NULL,
     FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
