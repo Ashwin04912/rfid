@@ -1,4 +1,6 @@
 const AttendanceService = require('../services/AttendanceService');
+const Employee = require('../models/Employee');
+const Attendance = require('../models/Attendance');
 
 class AttendanceController {
     static async scanCard(req, res) {
@@ -40,15 +42,21 @@ class AttendanceController {
     static async getEmployeeHistory(req, res) {
         try {
             const { id } = req.params;
-            const employee = await require('../models/Employee').findById(id);
-            if (!employee) return res.status(404).json({ error: 'Employee not found' });
+            console.log(`[HISTORY] Fetching logs for Employee ID: ${id}`);
+
+            const employee = await Employee.findById(id);
+            if (!employee) {
+                console.warn(`[HISTORY] Employee ${id} not found`);
+                return res.status(404).json({ error: 'Employee not found' });
+            }
 
             const history = await AttendanceService.getEmployeeAttendanceHistory(id);
-            const monthlyStats = await require('../models/Attendance').getMonthlyStats(id);
+            const monthlyStats = await Attendance.getMonthlyStats(id);
 
+            console.log(`[HISTORY] Found ${history.length} logs for ${employee.name}`);
             res.json({ employee, history, monthlyStats });
         } catch (error) {
-            console.error('History Error:', error);
+            console.error('[HISTORY] Error:', error);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }

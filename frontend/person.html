@@ -262,7 +262,7 @@
     </div>
 
     <script>
-        const socket = io('0.0.0.0');
+        const socket = io();
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
 
@@ -294,13 +294,19 @@
                 const tbody = document.getElementById('historyBody');
                 tbody.innerHTML = '';
 
+                console.log(`Received ${history.length} history records`);
+
+                if (history.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">No attendance logs found for this employee.</td></tr>';
+                }
+
                 history.forEach((log, i) => {
                     const tr = document.createElement('tr');
                     const isLiveSession = i === 0 && !log.check_out && log.check_in;
                     const earnings = parseFloat(log.earnings || 0).toFixed(2);
 
                     tr.innerHTML = `
-                        <td class="fw-bold">${new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                        <td class="fw-bold">${log.date ? new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '---'}</td>
                         <td>${log.check_in ? new Date(log.check_in).toLocaleTimeString('en-GB') : '--:--:--'}</td>
                         <td>${log.check_out ? new Date(log.check_out).toLocaleTimeString('en-GB') : '<span class="text-primary font-monospace fw-bold">In Progress...</span>'}</td>
                         <td class="fw-bold text-sub">
@@ -312,6 +318,7 @@
                 });
 
                 // Stats calculation
+                console.log('Monthly Stats:', monthlyStats);
                 if (monthlyStats.length > 0) {
                     const stat = monthlyStats[0];
                     const baseMonthlySecs = Math.floor(parseFloat(stat.total_monthly_hours || 0) * 3600);
