@@ -51,13 +51,15 @@ class AttendanceController {
             }
 
             const history = await AttendanceService.getEmployeeAttendanceHistory(id);
-            const monthlyStats = await Attendance.getMonthlyStats(id);
+            console.log(`[HISTORY] Fetched ${history.length} history items`);
 
-            console.log(`[HISTORY] Found ${history.length} logs for ${employee.name}`);
+            const monthlyStats = await Attendance.getMonthlyStats(id);
+            console.log(`[HISTORY] Fetched ${monthlyStats.length} monthly stats items`);
+
             res.json({ employee, history, monthlyStats });
         } catch (error) {
-            console.error('[HISTORY] Error:', error);
-            res.status(500).json({ error: 'Internal Server Error' });
+            console.error('[HISTORY] CRITICAL ERROR:', error.message, error.stack);
+            res.status(500).json({ error: 'Internal Server Error', details: error.message });
         }
     }
 }

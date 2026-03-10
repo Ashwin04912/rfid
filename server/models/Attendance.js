@@ -95,7 +95,7 @@ class Attendance {
             FROM attendance a
             JOIN employees e ON a.employee_id = e.id
             WHERE a.employee_id = ?
-            GROUP BY YEAR(a.date), MONTH(a.date)
+            GROUP BY YEAR(a.date), MONTH(a.date), MONTHNAME(a.date)
             ORDER BY year DESC, MONTH(a.date) DESC
         `, [id]);
         return rows;
