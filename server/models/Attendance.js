@@ -30,14 +30,22 @@ class Attendance {
     }
 
     static async getTodayReport() {
+        console.log(`[${new Date().toISOString()}] Fetching comprehensive today report...`);
         const [rows] = await db.execute(`
             SELECT e.id, e.name, e.rfid_uid, e.hourly_rate,
                 (SELECT MIN(check_in) FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as first_check_in,
                 (SELECT MAX(check_out) FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as latest_check_out,
+                -- Today's specific totals
                 (SELECT SUM(IFNULL(total_hours, TIMESTAMPDIFF(SECOND, check_in, NOW()) / 3600)) 
-                 FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as total_hours,
-                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 600) / 60))) 
-                 FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as total_earnings,
+                 FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as today_hours,
+                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60))) 
+                 FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as today_earnings,
+                -- Monthly cumulative totals (Total Time for the home page)
+                (SELECT SUM(IFNULL(total_hours, TIMESTAMPDIFF(SECOND, check_in, NOW()) / 3600)) 
+                 FROM attendance WHERE employee_id = e.id AND MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())) as monthly_hours,
+                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60))) 
+                 FROM attendance WHERE employee_id = e.id AND MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())) as monthly_earnings,
+                -- Current status check
                 (SELECT check_out FROM attendance WHERE employee_id = e.id AND date = CURDATE() ORDER BY id DESC LIMIT 1) as latest_session_checkout
             FROM employees e
             ORDER BY e.name ASC
@@ -49,17 +57,20 @@ class Attendance {
             rfid_uid: r.rfid_uid,
             first_check_in: r.first_check_in,
             latest_check_out: r.latest_check_out,
-            total_hours: r.total_hours || 0,
-            earnings: r.total_earnings || 0,
+            today_hours: r.today_hours || 0,
+            today_earnings: r.today_earnings || 0,
+            total_hours: r.monthly_hours || 0, // Using monthly as "Total Time"
+            earnings: r.monthly_earnings || 0,  // Using monthly as "Total Earnings"
             currently_in: r.first_check_in && r.latest_session_checkout === null
         }));
     }
 
     static async findByEmployeeId(employee_id) {
+        console.log(`[${new Date().toISOString()}] Fetching history for employee: ${employee_id}`);
         const [rows] = await db.execute(`
             SELECT a.check_in, a.check_out, 
                    IFNULL(a.total_hours, TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 3600) as total_hours,
-                   IFNULL(a.earnings, (TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 600) / 60)) as earnings,
+                   IFNULL(a.earnings, (TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60)) as earnings,
                    a.status, a.date
             FROM attendance a
             JOIN employees e ON a.employee_id = e.id

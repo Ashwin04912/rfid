@@ -252,8 +252,8 @@
                                 <th>RFID ID</th>
                                 <th>Employee Name</th>
                                 <th>Status</th>
-                                <th>Today's Time</th>
-                                <th>Earnings</th>
+                                <th>Total Time</th>
+                                <th>Total Earnings</th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
@@ -277,8 +277,8 @@
                                 <th>RFID ID</th>
                                 <th>Employee Name</th>
                                 <th>Status</th>
-                                <th>Today's Time</th>
-                                <th>Earnings</th>
+                                <th>Total Time</th>
+                                <th>Total Earnings</th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
@@ -294,9 +294,8 @@
     </div>
 
     <script>
-        const socket = io();
+        const socket = io('0.0.0.0');
         let currentAttendanceData = [];
-        let tickingInterval = null;
 
         function updateClock() {
             const now = new Date();
@@ -315,35 +314,6 @@
             return [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
         }
 
-        function calculateLiveValue(row) {
-            const lastUpdate = new Date(row._lastFetchedAt || Date.now());
-            const elapsedSinceFetch = Math.floor((Date.now() - lastUpdate) / 1000);
-            const hourlyRate = row.hourly_rate || 600;
-            const ratePerSec = hourlyRate / 3600;
-
-            const liveSecs = Math.floor(row.total_hours * 3600) + elapsedSinceFetch;
-            const liveEarnings = parseFloat(row.earnings) + (elapsedSinceFetch * ratePerSec);
-
-            return { liveSecs, liveEarnings };
-        }
-
-        function startTicking() {
-            if (tickingInterval) clearInterval(tickingInterval);
-            tickingInterval = setInterval(() => {
-                currentAttendanceData.forEach(row => {
-                    if (row.currently_in) {
-                        const { liveSecs, liveEarnings } = calculateLiveValue(row);
-
-                        const timeEl = document.querySelector(`.duration-timer[data-id="${row.id}"]`);
-                        const earnEl = document.querySelector(`.earnings-timer[data-id="${row.id}"]`);
-
-                        if (timeEl) timeEl.innerText = formatDuration(liveSecs);
-                        if (earnEl) earnEl.innerText = `₹${liveEarnings.toFixed(2)}`;
-                    }
-                });
-            }, 1000);
-        }
-
         function renderRows(rows, containerId) {
             const tbody = document.getElementById(containerId);
             tbody.innerHTML = '';
@@ -359,15 +329,11 @@
                 const currentlyIn = row.currently_in;
 
                 let statusHTML = '';
-                let timerClass = 'duration-static';
-                let earningsClass = 'text-sub';
 
                 if (!isPresent) {
                     statusHTML = '<span class="badge-status badge-absent">ABSENT</span>';
                 } else if (currentlyIn) {
                     statusHTML = '<span class="badge-status badge-in">PRESENT</span>';
-                    timerClass = 'duration-timer';
-                    earningsClass = 'earnings-timer text-success fw-bold';
                 } else {
                     statusHTML = '<span class="badge-status badge-out">CHECKED OUT</span>';
                 }
@@ -376,10 +342,10 @@
                 <td><span class="font-monospace text-sub" style="font-size: 0.8rem">${row.rfid_uid || '---'}</span></td>
                 <td><div class="fw-bold">${row.name}</div></td>
                 <td>${statusHTML}</td>
-                <td><span class="${timerClass}" data-id="${row.id}">${formatDuration(Math.floor(row.total_hours * 3600))}</span></td>
-                <td><span class="${earningsClass}" data-id="${row.id}">₹${parseFloat(row.earnings || 0).toFixed(2)}</span></td>
+                <td><span class="duration-static">${formatDuration(Math.floor(row.total_hours * 3600))}</span></td>
+                <td><span class="text-sub">₹${parseFloat(row.earnings || 0).toFixed(2)}</span></td>
                 <td class="text-end">
-                    <a href="/person.html?id=${row.id}" class="">View History</a>
+                    <a href="/person.html?id=${row.id}" style="text-decoration: none; font-weight: 700; color: var(--primary);">View History</a>
                 </td>
             `;
                 tbody.appendChild(tr);
@@ -387,7 +353,7 @@
         }
 
         function updateTable(data) {
-            currentAttendanceData = data.map(item => ({ ...item, _lastFetchedAt: Date.now() }));
+            currentAttendanceData = data;
 
             const present = currentAttendanceData.filter(r => !!r.first_check_in);
             const absent = currentAttendanceData.filter(r => !r.first_check_in);
@@ -398,8 +364,6 @@
             document.getElementById('totalEmployees').innerText = data.length;
             document.getElementById('totalPresent').innerText = present.length;
             document.getElementById('totalAbsent').innerText = absent.length;
-
-            startTicking();
         }
 
         async function loadData() {
