@@ -12,7 +12,7 @@ class Employee {
     }
 
     static async findById(id) {
-        const [rows] = await db.execute('SELECT * FROM employees WHERE id = ?', [id]);
+        const [rows] = await db.execute('SELECT * FROM employees WHERE id = ?', [Number(id)]);
         return rows[0];
     }
 }

@@ -66,29 +66,30 @@ class Attendance {
     }
 
     static async findByEmployeeId(employee_id) {
-        console.log(`[DB] Fetching history for employee: ${employee_id}`);
-        // Ensure consistent fallback rate if none specified
+        console.log(`[DB] Fetching history for employee ID: ${employee_id}`);
+        const id = Number(employee_id);
         const [rows] = await db.execute(`
             SELECT a.check_in, a.check_out, 
                    IFNULL(a.total_hours, TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 3600) as total_hours,
-                   IFNULL(a.earnings, (TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60)) as earnings,
+                   IFNULL(a.earnings, (TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 600) / 60)) as earnings,
                    a.status, a.date
             FROM attendance a
             JOIN employees e ON a.employee_id = e.id
             WHERE a.employee_id = ?
             ORDER BY a.date DESC, a.id DESC
-        `, [employee_id]);
+        `, [id]);
         return rows;
     }
 
     static async getMonthlyStats(employee_id) {
-        console.log(`[DB] Fetching monthly stats for employee: ${employee_id}`);
+        console.log(`[DB] Fetching monthly stats for employee ID: ${employee_id}`);
+        const id = Number(employee_id);
         const [rows] = await db.execute(`
             SELECT 
                 MONTHNAME(a.date) as month,
                 YEAR(a.date) as year,
                 SUM(IFNULL(a.total_hours, TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 3600)) as total_monthly_hours,
-                SUM(IFNULL(a.earnings, (TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60))) as total_monthly_earnings,
+                SUM(IFNULL(a.earnings, (TIMESTAMPDIFF(SECOND, a.check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 600) / 60))) as total_monthly_earnings,
                 COUNT(DISTINCT CASE WHEN a.status = 'PRESENT' THEN a.date END) as days_present,
                 COUNT(DISTINCT CASE WHEN a.status = 'ABSENT' THEN a.date END) as days_absent
             FROM attendance a
@@ -96,7 +97,7 @@ class Attendance {
             WHERE a.employee_id = ?
             GROUP BY YEAR(a.date), MONTH(a.date)
             ORDER BY year DESC, MONTH(a.date) DESC
-        `, [employee_id]);
+        `, [id]);
         return rows;
     }
 

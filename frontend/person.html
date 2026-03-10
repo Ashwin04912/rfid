@@ -281,14 +281,21 @@
 
             try {
                 const res = await fetch(`/attendance/employee/${userId}`);
-                const data = await res.json();
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
 
+                const data = await res.json();
                 const { employee, history, monthlyStats } = data;
+
+                if (!employee) {
+                    document.getElementById('empName').innerText = "Employee Not Found";
+                    document.getElementById('empSub').innerText = "We couldn't find a record with that ID.";
+                    return;
+                }
 
                 document.getElementById('empName').innerText = employee.name;
                 document.getElementById('empSub').innerText = `Employee ID: #${employee.id} | RFID: ${employee.rfid_uid}`;
                 document.getElementById('logCount').innerText = `${history.length} Sessions`;
-                document.getElementById('hourlyRate').innerText = `Rate: ₹${((employee.hourly_rate || 0) / 60).toFixed(0)}/min`;
+                document.getElementById('hourlyRate').innerText = `Rate: ₹${((employee.hourly_rate || 600) / 60).toFixed(0)}/min`;
 
                 // History Table
                 const tbody = document.getElementById('historyBody');
@@ -328,9 +335,6 @@
                     document.getElementById('estSalary').innerText = `₹${baseMonthlyEarnings.toFixed(2)}`;
                     document.getElementById('presentDays').innerText = stat.days_present;
                     document.getElementById('absentDays').innerText = stat.days_absent;
-
-                    // Remove glow if no live feed
-                    document.getElementById('monthlyHours').classList.remove('live-glow');
                 } else {
                     document.getElementById('monthlyHours').innerText = '00:00:00';
                     document.getElementById('estSalary').innerText = '₹0.00';
@@ -339,6 +343,9 @@
                 }
             } catch (err) {
                 console.error(err);
+                document.getElementById('empName').innerText = "Load Error";
+                document.getElementById('empSub').innerText = "Something went wrong while fetching data. Please try again.";
+                document.getElementById('historyBody').innerHTML = `<tr><td colspan="5" class="text-center py-5 text-danger">Failed to load logs. ${err.message}</td></tr>`;
             }
         }
 
