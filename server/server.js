@@ -7,6 +7,9 @@ const AttendanceController = require('./controllers/AttendanceController');
 const initScheduler = require('./services/Scheduler');
 require('dotenv').config();
 
+// Fix BigInt serialization for JSON.stringify (common with mysql2 COUNT/SUM)
+BigInt.prototype.toJSON = function () { return this.toString() };
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -40,7 +43,7 @@ app.use(express.static('frontend'));
 initScheduler(io);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT,'0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
 

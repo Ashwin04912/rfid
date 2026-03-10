@@ -38,12 +38,12 @@ class Attendance {
                 -- Today's specific totals
                 (SELECT SUM(IFNULL(total_hours, TIMESTAMPDIFF(SECOND, check_in, NOW()) / 3600)) 
                  FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as today_hours,
-                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60))) 
+                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 600) / 60))) 
                  FROM attendance WHERE employee_id = e.id AND date = CURDATE()) as today_earnings,
                 -- Monthly cumulative totals (Total Time for the home page)
                 (SELECT SUM(IFNULL(total_hours, TIMESTAMPDIFF(SECOND, check_in, NOW()) / 3600)) 
                  FROM attendance WHERE employee_id = e.id AND MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())) as monthly_hours,
-                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 0) / 60))) 
+                (SELECT SUM(IFNULL(earnings, (TIMESTAMPDIFF(SECOND, check_in, NOW()) / 60) * (IFNULL(e.hourly_rate, 600) / 60))) 
                  FROM attendance WHERE employee_id = e.id AND MONTH(date) = MONTH(CURDATE()) AND YEAR(date) = YEAR(CURDATE())) as monthly_earnings,
                 -- Current status check
                 (SELECT check_out FROM attendance WHERE employee_id = e.id AND date = CURDATE() ORDER BY id DESC LIMIT 1) as latest_session_checkout
