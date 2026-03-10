@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Profile | Attendance System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366F1;
+            --background: #020617;
+            --glass: rgba(15, 23, 42, 0.8);
+            --border: rgba(255, 255, 255, 0.08);
+            --accent-green: #10B981;
+            --accent-red: #F43F5E;
+        }
+
+        body {
+            background-color: var(--background);
+            background-image:
+                radial-gradient(at 100% 100%, hsla(253, 16%, 15%, 1) 0, transparent 50%),
+                radial-gradient(at 0% 0%, hsla(225, 39%, 15%, 1) 0, transparent 50%);
+            background-attachment: fixed;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #F8FAFC;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .profile-header {
+            padding: 60px 40px;
+            background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .summary-box {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 28px;
+            border-radius: 24px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .summary-box:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #94A3B8;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .live-glow {
+            position: relative;
+            color: var(--accent-green) !important;
+        }
+
+        .live-glow::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--accent-green);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.5);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .table td,
+        .table th {
+            padding: 20px 24px;
+            color: #CBD5E1;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .table thead th {
+            color: #64748B;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 1.5px;
+            font-weight: 800;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .badge-present {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34D399;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+
+        .badge-absent {
+            background: rgba(244, 63, 94, 0.1);
+            color: #FB7185;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+
+        .btn-back {
+            color: #94A3B8;
+            text-decoration: none;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            margin-top: 40px;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            color: white;
+            transform: translateX(-5px);
+        }
+
+        .earnings-animate {
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-up {
+            animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container animate-up">
+        <a href="/" class="btn-back mb-3">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M19 12H5m7 7l-7-7 7-7" />
+            </svg>
+            Back to Home
+        </a>
+
+        <div class="glass-card overflow-hidden">
+            <div class="profile-header text-center">
+                <div class="display-4 fw-extrabold mb-1" style="letter-spacing: -1px" id="empName">...</div>
+                <div class="opacity-50 mb-5 fw-medium" id="empSub">Loading details...</div>
+
+                <div class="row g-4 justify-content-center">
+                    <div class="col-6 col-md-3">
+                        <div class="summary-box">
+                            <div class="stat-label">Total Monthly Hours</div>
+                            <div class="stat-value text-primary" id="monthlyHours">00:00:00</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="summary-box"
+                            style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.1)">
+                            <div class="stat-label">Monthly Salary</div>
+                            <div class="stat-value earnings-animate" id="estSalary">₹0.00</div>
+                            <div class="small opacity-50 mt-1 fw-bold" id="hourlyRate">Rate: ₹10/min</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="summary-box">
+                            <div class="stat-label">Days Present</div>
+                            <div class="stat-value text-success" id="presentDays">0</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="summary-box">
+                            <div class="stat-label">Days Absent</div>
+                            <div class="stat-value text-accent" id="absentDays" style="color: var(--accent-red)">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4">
+                <h5 class="fw-bold mb-4 px-3 d-flex align-items-center gap-3">
+                    Attendance History
+                    <span class="badge bg-white bg-opacity-5 text-sub rounded-pill fw-bold" style="font-size: 0.65rem"
+                        id="logCount">0 Logs</span>
+                </h5>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Check In</th>
+                                <th>Check Out</th>
+                                <th>Duration</th>
+                                <th>Earnings</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-5 opacity-50">Loading logs...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+        const RATE_PER_MIN = 10;
+
+        let isCurrentlyIn = false;
+        let baseMonthlySecs = 0;
+        let baseSessionSecs = 0;
+        let lastFetchedAt = Date.now();
+        let tickTimer = null;
+
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
+        }
+
+        function startLiveFeed() {
+            if (tickTimer) clearInterval(tickTimer);
+            tickTimer = setInterval(() => {
+                if (isCurrentlyIn) {
+                    const elapsedSecs = Math.floor((Date.now() - lastFetchedAt) / 1000);
+                    const liveMonthlySecs = baseMonthlySecs + elapsedSecs;
+                    const liveSessionSecs = baseSessionSecs + elapsedSecs;
+
+                    // Update Header
+                    document.getElementById('monthlyHours').innerText = formatDuration(liveMonthlySecs);
+                    document.getElementById('monthlyHours').classList.add('live-glow');
+                    document.getElementById('estSalary').innerText = `₹${((liveMonthlySecs / 60) * RATE_PER_MIN).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                    // Update First Row in History (the active session)
+                    const firstRowTimer = document.querySelector('.session-timer');
+                    const firstRowYield = document.querySelector('.session-yield');
+                    if (firstRowTimer) firstRowTimer.innerText = formatDuration(liveSessionSecs);
+                    if (firstRowYield) firstRowYield.innerText = `₹${((liveSessionSecs / 60) * RATE_PER_MIN).toFixed(2)}`;
+                }
+            }, 1000);
+        }
+
+        async function loadData() {
+            if (!userId) {
+                window.location.href = '/';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/attendance/employee/${userId}`);
+                const data = await res.json();
+
+                const { employee, history, monthlyStats } = data;
+                lastFetchedAt = Date.now();
+                isCurrentlyIn = false;
+
+                document.getElementById('empName').innerText = employee.name;
+                document.getElementById('empSub').innerText = `Employee ID: #${employee.id} | RFID: ${employee.rfid_uid}`;
+                document.getElementById('logCount').innerText = `${history.length} Sessions`;
+
+                // History Table
+                const tbody = document.getElementById('historyBody');
+                tbody.innerHTML = '';
+
+                // Track if latest session is active
+                if (history.length > 0 && !history[0].check_out && history[0].check_in) {
+                    isCurrentlyIn = true;
+                    baseSessionSecs = Math.floor(parseFloat(history[0].total_hours || 0) * 3600);
+                }
+
+                history.forEach((log, i) => {
+                    const tr = document.createElement('tr');
+                    const durHrs = parseFloat(log.total_hours || 0);
+                    const earnings = (durHrs * RATE_PER_MIN * 60).toFixed(2);
+                    const isLiveSession = i === 0 && !log.check_out && log.check_in;
+
+                    tr.innerHTML = `
+                    <td class="fw-bold">${new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                    <td>${log.check_in ? new Date(log.check_in).toLocaleTimeString('en-GB') : '--:--:--'}</td>
+                    <td>${log.check_out ? new Date(log.check_out).toLocaleTimeString('en-GB') : '<span class="text-primary font-monospace fw-bold animate-pulse">Running...</span>'}</td>
+                    <td class="fw-bold ${isLiveSession ? 'session-timer text-primary' : 'text-sub'}">
+                        ${formatDuration(Math.floor(durHrs * 3600))}
+                    </td>
+                    <td class="fw-bold ${isLiveSession ? 'session-yield text-success' : 'text-sub'}">₹${earnings}</td>
+                `;
+                    tbody.appendChild(tr);
+                });
+
+                // Stats calculation
+                if (monthlyStats.length > 0) {
+                    const stat = monthlyStats[0];
+                    baseMonthlySecs = Math.floor(parseFloat(stat.total_monthly_hours) * 3600);
+                    document.getElementById('monthlyHours').innerText = formatDuration(baseMonthlySecs);
+                    document.getElementById('estSalary').innerText = `₹${(parseFloat(stat.total_monthly_hours) * RATE_PER_MIN * 60).toFixed(2)}`;
+                    document.getElementById('presentDays').innerText = stat.days_present;
+                    document.getElementById('absentDays').innerText = stat.days_absent;
+                } else {
+                    document.getElementById('monthlyHours').innerText = '00:00:00';
+                    document.getElementById('estSalary').innerText = '₹0.00';
+                    document.getElementById('presentDays').innerText = '0';
+                    document.getElementById('absentDays').innerText = '0';
+                }
+
+                if (isCurrentlyIn) {
+                    startLiveFeed();
+                } else {
+                    if (tickTimer) clearInterval(tickTimer);
+                    document.getElementById('monthlyHours').classList.remove('live-glow');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        loadData();
+        socket.on('attendanceUpdate', () => {
+            loadData();
+        });
+    </script>
+</body>
+
+</html>

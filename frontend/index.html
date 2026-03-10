@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Dashboard | Live Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366F1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --secondary: #10B981;
+            --secondary-glow: rgba(16, 185, 129, 0.4);
+            --accent: #F43F5E;
+            --background: #020617;
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #F8FAFC;
+            --text-sub: #94A3B8;
+        }
+
+        body {
+            background-color: var(--background);
+            background-image:
+                radial-gradient(at 0% 0%, hsla(253, 16%, 15%, 1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(339, 49%, 20%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 100%, hsla(225, 39%, 15%, 1) 0, transparent 50%);
+            background-attachment: fixed;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            min-height: 100vh;
+            padding-bottom: 50px;
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header-section {
+            padding: 60px 0 40px;
+            position: relative;
+        }
+
+        #clock {
+            font-size: 4rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+            background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .stat-card {
+            padding: 32px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: var(--text-sub);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin: 40px 0 20px;
+            padding-left: 10px;
+            border-left: 4px solid var(--primary);
+            color: var(--text-main);
+        }
+
+        .table {
+            margin-bottom: 0;
+            color: var(--text-main);
+        }
+
+        .table thead th {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 20px 24px;
+            font-weight: 700;
+            color: var(--text-sub);
+            border: none;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .table tbody td {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--glass-border);
+            vertical-align: middle;
+        }
+
+        .badge-status {
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-in {
+            background: var(--secondary-glow);
+            color: #34D399;
+        }
+
+        .badge-in::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #34D399;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .badge-out {
+            background: rgba(148, 163, 184, 0.1);
+            color: #94A3B8;
+        }
+
+        .badge-absent {
+            background: rgba(244, 63, 94, 0.1);
+            color: #FB7185;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .duration-timer {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .duration-static {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--text-sub);
+        }
+
+        .btn-portal {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+            padding: 8px 20px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-portal:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-up {
+            animation: slideInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container animate-up">
+        <div class="header-section text-center">
+            <h1 class="fw-bold mb-2">Live Attendance System</h1>
+            <div id="clock">00:00:00</div>
+            <p class="text-sub" id="currentDate">...</p>
+        </div>
+
+        <div class="row g-4 mb-5">
+            <div class="col-md-4">
+                <div class="glass-card stat-card">
+                    <div class="stat-value" id="totalEmployees">0</div>
+                    <div class="stat-label">Total Employees</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-card stat-card">
+                    <div class="stat-value text-secondary" id="totalPresent">0</div>
+                    <div class="stat-label">Present Today</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="glass-card stat-card">
+                    <div class="stat-value text-accent" id="totalAbsent">0</div>
+                    <div class="stat-label">Absent Today</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="presentSection">
+            <div class="section-title">Employees Present / Working</div>
+            <div class="glass-card overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>RFID ID</th>
+                                <th>Employee Name</th>
+                                <th>Status</th>
+                                <th>Today's Time</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="presentBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-5 opacity-50">Checking status...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="absentSection">
+            <div class="section-title text-accent">Absent Today</div>
+            <div class="glass-card overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>RFID ID</th>
+                                <th>Employee Name</th>
+                                <th>Status</th>
+                                <th>Today's Time</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="absentBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-5 opacity-50">Checking status...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentAttendanceData = [];
+        let tickingInterval = null;
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-GB');
+            document.getElementById('currentDate').innerText = now.toLocaleDateString(undefined, {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return [h, m, s].map(v => v < 10 ? '0' + v : v).join(':');
+        }
+
+        function calculateLiveDuration(row) {
+            if (!row.currently_in || !row.first_check_in) return Math.floor(row.total_hours * 3600);
+            const lastUpdate = new Date(row._lastFetchedAt || Date.now());
+            const elapsedSinceFetch = Math.floor((Date.now() - lastUpdate) / 1000);
+            return Math.floor(row.total_hours * 3600) + elapsedSinceFetch;
+        }
+
+        function startTicking() {
+            if (tickingInterval) clearInterval(tickingInterval);
+            tickingInterval = setInterval(() => {
+                const timerElements = document.querySelectorAll('.duration-timer');
+                timerElements.forEach(el => {
+                    const id = el.dataset.id;
+                    const row = currentAttendanceData.find(r => r.id == id);
+                    if (row && row.currently_in) {
+                        el.innerText = formatDuration(calculateLiveDuration(row));
+                    }
+                });
+            }, 1000);
+        }
+
+        function renderRows(rows, containerId) {
+            const tbody = document.getElementById(containerId);
+            tbody.innerHTML = '';
+
+            if (rows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No records found here.</td></tr>';
+                return;
+            }
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                const isPresent = !!row.first_check_in;
+                const currentlyIn = row.currently_in;
+
+                let statusHTML = '';
+                let timerClass = 'duration-static';
+                if (!isPresent) {
+                    statusHTML = '<span class="badge-status badge-absent">ABSENT</span>';
+                } else if (currentlyIn) {
+                    statusHTML = '<span class="badge-status badge-in">PRESENT</span>';
+                    timerClass = 'duration-timer';
+                } else {
+                    statusHTML = '<span class="badge-status badge-out">CHECKED OUT</span>';
+                }
+
+                tr.innerHTML = `
+                <td><span class="font-monospace text-sub" style="font-size: 0.8rem">${row.rfid_uid || '---'}</span></td>
+                <td><div class="fw-bold">${row.name}</div></td>
+                <td>${statusHTML}</td>
+                <td><span class="${timerClass}" data-id="${row.id}">${formatDuration(Math.floor(row.total_hours * 3600))}</span></td>
+                <td class="text-end">
+                    <a href="/person.html?id=${row.id}" class="btn-portal">View History</a>
+                </td>
+            `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateTable(data) {
+            currentAttendanceData = data.map(item => ({ ...item, _lastFetchedAt: Date.now() }));
+
+            const present = currentAttendanceData.filter(r => !!r.first_check_in);
+            const absent = currentAttendanceData.filter(r => !r.first_check_in);
+
+            renderRows(present, 'presentBody');
+            renderRows(absent, 'absentBody');
+
+            document.getElementById('totalEmployees').innerText = data.length;
+            document.getElementById('totalPresent').innerText = present.length;
+            document.getElementById('totalAbsent').innerText = absent.length;
+
+            startTicking();
+        }
+
+        async function loadData() {
+            try {
+                const res = await fetch('/attendance/today');
+                const data = await res.json();
+                updateTable(data);
+            } catch (err) { console.error('Fetch error:', err); }
+        }
+
+        loadData();
+        socket.on('attendanceUpdate', (data) => updateTable(data));
+    </script>
+
+</body>
+
+</html>
